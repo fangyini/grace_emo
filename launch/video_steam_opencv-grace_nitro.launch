@@ -1,0 +1,65 @@
+<launch>
+
+   <!-- launch video stream -->
+   <include file="$(find video_stream_opencv)/launch/grace_camera.launch" >
+        <!-- node name and ros graph name -->
+        <arg name="camera_name" value="left_eye" />
+        <!-- Setting camera properties -->
+        <arg name="contrast" value="50" />
+        <arg name="saturation" value="64" />
+        <arg name="brightness" value="0" />
+        <arg name="auto_exposure" value="3" />
+        <arg name="exposure" value="3" />
+        <!-- means video device 0, /dev/video0 -->
+        <arg name="video_stream_provider" value="/dev/v4l/by-id/usb-Generic_USB_Camera_200901010001-video-index0" />
+        <!-- set camera fps to (if the device allows) -->
+        <arg name="set_camera_fps" value="30"/>
+        <!-- set buffer queue size of frame capturing to -->
+        <arg name="buffer_queue_size" value="2" />
+        <!-- throttling the querying of frames to -->
+        <arg name="fps" value="30" />
+        <!-- setting frame_id -->
+        <arg name="frame_id" value="left_eye" />
+        <!-- camera info loading, take care as it needs the "file:///" at the start , e.g.:
+        "file:///$(find your_camera_package)/config/your_camera.yaml" -->
+        <arg name="camera_info_url" value="" />
+        <!-- flip the image horizontally (mirror it) -->
+        <arg name="flip_horizontal" value="false" />
+        <!-- flip the image vertically -->
+        <arg name="flip_vertical" value="false" />
+        <!-- visualize on an image_view window the stream generated -->
+        <arg name="visualize" value="true" />
+   </include>
+
+   <!-- launch video stream -->
+   <include file="$(find video_stream_opencv)/launch/grace_camera.launch" >
+        <!-- node name and ros graph name -->
+        <arg name="camera_name" value="right_eye" />
+        <!-- Setting camera properties -->
+        <arg name="contrast" value="50" />
+        <arg name="saturation" value="64" />
+        <arg name="brightness" value="0" />
+        <arg name="auto_exposure" value="3" />
+        <arg name="exposure" value="3" />
+        <!-- means video device 0, /dev/video0 -->
+        <arg name="video_stream_provider" value="/dev/v4l/by-id/usb-Generic_USB_Camera_20221013-OOV2740-13-0000-video-index0" />
+        <!-- set camera fps to (if the device allows) -->
+        <arg name="set_camera_fps" value="30"/>
+        <!-- set buffer queue size of frame capturing to -->
+        <arg name="buffer_queue_size" value="2" />
+        <!-- throttling the querying of frames to -->
+        <arg name="fps" value="30" />
+        <!-- setting frame_id -->
+        <arg name="frame_id" value="right_eye" />
+        <!-- camera info loading, take care as it needs the "file:///" at the start , e.g.:
+        "file:///$(find your_camera_package)/config/your_camera.yaml" -->
+        <arg name="camera_info_url" value="" />
+        <!-- flip the image horizontally (mirror it) -->
+        <arg name="flip_horizontal" value="false" />
+        <!-- flip the image vertically -->
+        <arg name="flip_vertical" value="false" />
+        <!-- visualize on an image_view window the stream generated -->
+        <arg name="visualize" value="true" />
+   </include>
+
+</launch>
