@@ -1,3 +1,8 @@
+# random decide the angle
+# save: neutral, all_motors, half_motor_symmetric,
+# calculate face similarity: neutral, all_motors, all_motors and half_motor_symmetric
+
+
 import os
 import sys
 sys.path.append(os.getcwd())
@@ -11,16 +16,13 @@ from hr_msgs.msg import TargetPosture, MotorStateList
 from rospy_message_converter import message_converter
 
 from grace.utils import *
+from face_motors import get_face_motors
 
-
-class SimpleNode(object):
-
-
-    def __init__(self, motors=["EyeTurnLeft", "EyeTurnRight", "EyesUpDown",
-                         "NeckRotation", "UpperGimbalLeft", "UpperGimbalRight",
-                         "LowerGimbalLeft", "LowerGimbalRight"], degrees=True):
+class TestMotorNode(object):
+    def __init__(self, degrees=True):
 
         rospy.loginfo('Starting')
+        motors = get_face_motors()
         self.motors = motors
         self._motor_states = [None]*len(self.motors)
         self.degrees = degrees
@@ -29,7 +31,7 @@ class SimpleNode(object):
         self.motor_pub = rospy.Publisher('/hr/actuators/pose', TargetPosture, queue_size=1)
         self.motor_sub = rospy.Subscriber('/hr/actuators/motor_states', MotorStateList, self._capture_state)
         self.names = motors
-        #time.sleep(3.0)
+        time.sleep(3.0)
 
     def _capture_state(self, msg):
         """Callback for capturing motor state
@@ -42,7 +44,7 @@ class SimpleNode(object):
                     self._motor_states[idx] = message_converter.convert_ros_message_to_dictionary(motor_msg)
                     self._motor_states[idx]['angle'] = motor_int_to_angle(motor_msg.name, motor_msg.position, self.degrees)
       
-    def main(self):
+    def run(self):
         rospy.loginfo('Running')
 
         rospy.sleep(1.5)
@@ -62,6 +64,6 @@ class SimpleNode(object):
 
 
 if __name__ == '__main__':
-    rospy.init_node('SimpleNode')
-    simple = SimpleNode()
-    simple.main()
+    rospy.init_node('TestMotorNode')
+    node = TestMotorNode()
+    node.run()
