@@ -1,4 +1,4 @@
-import cv2, glob
+import cv2
 
 cam = cv2.VideoCapture(-1)
 result, image = cam.read() 
@@ -8,3 +8,4 @@ if result:
 else: 
     print(result)
     print("No image detected. Please! try again")
+cam.release()

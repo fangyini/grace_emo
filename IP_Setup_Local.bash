@@ -6,3 +6,4 @@ elif [ "$HOSTNAME" = nitro ]; then
 else
     export ROS_IP=192.168.99.243
 fi
+
