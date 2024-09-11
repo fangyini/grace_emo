@@ -1,6 +1,3 @@
-# calculate face similarity: neutral, all_motors, all_motors and half_motor_symmetric
-
-
 import os
 import sys
 sys.path.append(os.getcwd())
@@ -21,7 +18,6 @@ from grace.utils import *
 from face_motors import *
 from video_cap import VideoCapture
 
-cam = VideoCapture(-1)
 
 class TestMotorNode(object):
     def __init__(self, degrees=True, output='images/test/'):
@@ -49,20 +45,19 @@ class TestMotorNode(object):
         time.sleep(3.0)
 
     def take_photo_callback(self, msg):
-        print(str(msg.data))
         self.take_photo(self.output, str(msg.data))
       
     def test_random_face(self, times=1):
         rospy.loginfo('Running random face')
-        random_values = self.get_random_movement() # for all the face motors
-        sleep_time = 5
+        sleep_time = 1
         for i in range(times):
-            time.sleep(sleep_time)
+            '''time.sleep(sleep_time)
             # save: neutral, all_motors, half_motor_symmetric,
             self.move_to_neutral_state()
             time.sleep(sleep_time)
-            self.is_moved_pub.publish(str(i)+'_neutral')
+            self.is_moved_pub.publish(str(i)+'_neutral')'''
 
+            random_values = self.get_random_movement(gaussian=True) # for all the face motors
             time.sleep(sleep_time)
             self.move(random_values)
             time.sleep(sleep_time)
@@ -70,7 +65,6 @@ class TestMotorNode(object):
 
         rospy.signal_shutdown('End')
         sys.exit()
-        # todo: remember to write down the information!!
 
     def test_symmetric_face(self, times=1):
         rospy.loginfo('Running symmetric face')
@@ -89,9 +83,7 @@ class TestMotorNode(object):
         sys.exit()
 
     def take_photo(self, output_path, output_name):
-        print('take photo, ', output_name)
         filename = output_path + 'img_' + output_name + '.png'
-        #result, image = cam.read() 
         try:
             image = cam.read()
             cv2.imwrite(filename, image)
@@ -119,18 +111,37 @@ class TestMotorNode(object):
             value = self.motor_move_info[name]['max_degree']
         return value
     
-    def get_random_movement(self, names=None):
+    def get_random_movement(self, names=None, gaussian=False):
         if names is None:
             names = self.motors
         values = []
         for i in names:
-            min, max = math.ceil(self.motor_move_info[i]['min_degree']), math.floor(self.motor_move_info[i]['max_degree'])
-            values.append(random.randint(min, max))
+            min_d, max_d = math.ceil(self.motor_move_info[i]['min_degree']), math.floor(self.motor_move_info[i]['max_degree'])
+            if gaussian is True:
+                sampled_num = np.random.normal() # around (-3, 3)
+                scale = max(max_d, abs(min_d)) / 3
+                random_value = sampled_num * scale
+                if max_d == 0 and random_value > 0:
+                    random_value = -1 * random_value
+                elif min_d == 0 and random_value < 0:
+                    random_value = -1 * random_value
+                # it's okay if exceed the limit, checked at a later point
+                # print for debug
+                '''print('min d=', min_d, ',max d=', max_d)
+                print('sampled num=', sampled_num)
+                print('scale=', scale)
+                print('random value=', random_value)
+                print('\n')'''
+            else:
+                random_value = random.randint(min_d, max_d)
+            values.append(random_value)
         return values
 
 
 if __name__ == '__main__':
+    global cam
+    cam = VideoCapture(-1)
     rospy.init_node('TestMotorNode')
-    node = TestMotorNode(output='images/test_sym2/')
-    #node.test_random_face(times=5)
-    node.test_symmetric_face(times=20)
+    node = TestMotorNode(output='images/test/')
+    node.test_random_face(times=1)
+    #node.test_symmetric_face(times=10)
