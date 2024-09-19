@@ -98,16 +98,15 @@ if __name__ == '__main__':
 
     path = 'grace_emo/dataset/processed_gau_600/'
     log_dir = "grace_emo/emotion/motor_prediction/lightning_logs/"
-    log_name = "5_layer_best"
+    log_name = "5-layer NN_split"
 
     args = parse_args()
-    checkpoint = "grace_emo/emotion/motor_prediction/lightning_logs/5_layer_best/epoch=3254-step=45570.ckpt"
     tb_logger = pl_loggers.TensorBoardLogger(save_dir=os.path.join(log_dir, log_name))
     label_mean, label_std, ldmk_mean, ldmk_std = calculate_data_stat(path)
     print(f"data stat: label mean={label_mean}, label std={label_std}, ldmk mean={ldmk_mean}, ldmk_std={ldmk_std}")
 
     # training and testing
-    '''model = GracePL(os.path.join(log_dir, log_name), label_mean, label_std, ldmk_mean, ldmk_std,
+    model = GracePL(os.path.join(log_dir, log_name), label_mean, label_std, ldmk_mean, ldmk_std,
                     args.node1, args.node2, args.node3, args.node4, args.learning_rate)
 
     train_loader = DataLoader(GraceFaceDataset(image_path=path, split='train'), batch_size=32, shuffle=True, num_workers=11, persistent_workers=True)
@@ -121,9 +120,11 @@ if __name__ == '__main__':
                         callbacks=[early_stop_callback])
     trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=val_loader,)
                 #ckpt_path=checkpoint)
-    trainer.test(model, dataloaders=test_loader)'''
+    trainer.test(model, dataloaders=test_loader)
 
     # only testing
+    '''
+    checkpoint = "grace_emo/emotion/motor_prediction/lightning_logs/5-layer NN/lightning_logs/version_0/checkpoints/epoch=6450-step=90314.ckpt"
     model = GracePL.load_from_checkpoint(checkpoint,
                                          output_path=os.path.join(log_dir, log_name),
                                          label_mean=label_mean, label_std=label_std, ldmk_mean=ldmk_mean, ldmk_std=ldmk_std,
@@ -132,4 +133,4 @@ if __name__ == '__main__':
     trainer = L.Trainer()
     test_loader = DataLoader(GraceFaceDataset(image_path=path, split='test'), batch_size=50, shuffle=False)
     model.eval()
-    trainer.test(model, dataloaders=test_loader)
+    trainer.test(model, dataloaders=test_loader)'''

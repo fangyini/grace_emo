@@ -6,12 +6,12 @@ import random
 import torch
 from torch.utils.data import DataLoader
 from emotion.motor_prediction.utils import get_device
-
+import pickle
 device = get_device()
 
 class GraceFaceDataset():
     def __init__(self, split, image_path='/Users/xiaokeai/Documents/HKUST/projects/grace/grace_emo/dataset/processed_gau/'):
-        filenames = sorted(glob.glob(os.path.join(image_path, 'data_*.npz')))
+        filenames = sorted(glob.glob(os.path.join(image_path, 'data/data_*.npz')))
         total_len = len(filenames)
         random.shuffle(filenames)
         self.split = split
@@ -23,6 +23,18 @@ class GraceFaceDataset():
             self.data = filenames[int(total_len*0.9):]
         print('len=', len(self.data))
         print('Images are currently not used!')
+
+        '''index_list_file = os.path.join(image_path, 'index_files/' + str(split) + '.txt')
+        with open(index_list_file, 'rb') as fp:
+            index_list = pickle.load(fp)
+
+        self.split = split
+        self.data = []
+        for h in index_list:
+            self.data.append(filenames[h])
+
+        print('len=', len(self.data))
+        print('Images are currently not used!')'''
 
     def __len__(self):
         return len(self.data)

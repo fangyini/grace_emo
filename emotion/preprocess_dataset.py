@@ -71,7 +71,7 @@ if __name__ == '__main__':
     processed_dataset_path = os.path.join(dataset_path_root, 'processed_gau_600')
     if not os.path.exists(processed_dataset_path):
         os.makedirs(processed_dataset_path)
-    processed_img_path = os.path.join(processed_dataset_path, 'img')
+    processed_img_path = os.path.join(processed_dataset_path, 'data')
     if not os.path.exists(processed_img_path):
         os.makedirs(processed_img_path)
 
@@ -121,7 +121,7 @@ if __name__ == '__main__':
             pass
 
         # save npz, image(224,224,3)/landmark(68,2)/label(26,)
-        np.savez(os.path.join(processed_dataset_path, 'data_'+number+'.npz'), image=cropped_image, label=label, ldmk=landmark)
+        np.savez(os.path.join(processed_img_path, 'data_'+number+'.npz'), image=cropped_image, label=label, ldmk=landmark)
         last_landmark = landmark
 
         # filters: motor errors, degrees>180, landmarks distance, label distance
