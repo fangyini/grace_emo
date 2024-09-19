@@ -14,6 +14,7 @@ class GraceFaceDataset():
         filenames = sorted(glob.glob(os.path.join(image_path, 'data_*.npz')))
         total_len = len(filenames)
         random.shuffle(filenames)
+        self.split = split
         if split == 'train':
             self.data = filenames[:int(total_len*0.8)]
         elif split == 'val':
@@ -32,7 +33,10 @@ class GraceFaceDataset():
         image = data['image'].astype(np.float32)
         landmarks = data['ldmk'].flatten().astype(np.float32)
         label = data['label'].flatten().astype(np.float32)
-        return image, landmarks, label
+        if self.split == 'test':
+            return image, landmarks, label, filename
+        else:
+            return image, landmarks, label
 
 if __name__ == "__main__":
     dataset = GraceFaceDataset()

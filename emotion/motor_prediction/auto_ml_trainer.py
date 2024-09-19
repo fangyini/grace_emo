@@ -27,7 +27,8 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    path = 'grace_emo/dataset/processed_gau_600/'
+    print('input arguments: ', args)
+    path = '/Users/xiaokeai/Documents/HKUST/projects/grace/grace_emo/dataset/processed_gau_600/'
 
     early_stop_callback = EarlyStopping(monitor="val_L1_loss", patience=500, verbose=False, mode="min")
 

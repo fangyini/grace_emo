@@ -10,12 +10,13 @@ from torch.utils.data import DataLoader
 from lightning.pytorch import loggers as pl_loggers
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 import argparse
-
+import pandas as pd
+import csv
 device = get_device()
 
 # define the LightningModule
 class GracePL(L.LightningModule):
-    def __init__(self, label_mean, label_std, ldmk_mean, ldmk_std,
+    def __init__(self, output_path, label_mean, label_std, ldmk_mean, ldmk_std,
                  node1, node2, node3, node4, learning_rate, autoML=False):
         super().__init__()
         self.model = GraceModel(node1, node2, node3, node4)
@@ -27,6 +28,9 @@ class GracePL(L.LightningModule):
         self.ldmk_std = ldmk_std
         self.lr = learning_rate
         self.isAutoML = autoML
+        print('Output path=', output_path)
+        self.csv_file = os.path.join(output_path, 'testing_results.csv')
+        self.test_step_outputs = []
 
     def training_step(self, batch, batch_idx):
         images, ldmks, labels = batch
@@ -56,14 +60,27 @@ class GracePL(L.LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx):
-        images, ldmks, labels = batch
+        images, ldmks, labels, filename = batch
         images, ldmks, labels = images.to(device), ldmks.to(device), labels.to(device)
         ldmks = (ldmks - self.ldmk_mean) / self.ldmk_std
         y = self.model(ldmks)
         y = y * self.label_std + self.label_mean
         loss = self.L1_loss(y, labels)
         self.log("test_L1_loss", loss, prog_bar=False)
+        for i in range(y.size()[0]):
+            filename_ = filename[i]
+            y_ = y[i]
+            self.test_step_outputs.append([filename_, y_])
         return loss
+
+    def on_test_epoch_end(self):
+        with open(self.csv_file,'w') as csv_writer:
+            writer=csv.writer(csv_writer, delimiter='\t',lineterminator='\n',)
+            for output in self.test_step_outputs:
+                gazes = output[1].cpu().detach().numpy().flatten().tolist()
+                name = output[0].split('/')[-1].split('.')[0].split('_')[-1]
+                row = [name, gazes]
+                writer.writerow(row)
 
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(), lr=self.lr)
@@ -81,13 +98,16 @@ if __name__ == '__main__':
 
     path = 'grace_emo/dataset/processed_gau_600/'
     log_dir = "grace_emo/emotion/motor_prediction/lightning_logs/"
-    log_name = "5-layer NN_dropout"
+    log_name = "5_layer_best"
 
     args = parse_args()
-    #checkpoint = "grace_emo/emotion/motor_prediction/lightning_logs/3-layer NN/lightning_logs/version_2/checkpoints/epoch=4999-step=70000.ckpt"
+    checkpoint = "grace_emo/emotion/motor_prediction/lightning_logs/5_layer_best/epoch=3254-step=45570.ckpt"
     tb_logger = pl_loggers.TensorBoardLogger(save_dir=os.path.join(log_dir, log_name))
     label_mean, label_std, ldmk_mean, ldmk_std = calculate_data_stat(path)
-    model = GracePL(label_mean, label_std, ldmk_mean, ldmk_std,
+    print(f"data stat: label mean={label_mean}, label std={label_std}, ldmk mean={ldmk_mean}, ldmk_std={ldmk_std}")
+
+    # training and testing
+    '''model = GracePL(os.path.join(log_dir, log_name), label_mean, label_std, ldmk_mean, ldmk_std,
                     args.node1, args.node2, args.node3, args.node4, args.learning_rate)
 
     train_loader = DataLoader(GraceFaceDataset(image_path=path, split='train'), batch_size=32, shuffle=True, num_workers=11, persistent_workers=True)
@@ -101,4 +121,15 @@ if __name__ == '__main__':
                         callbacks=[early_stop_callback])
     trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=val_loader,)
                 #ckpt_path=checkpoint)
+    trainer.test(model, dataloaders=test_loader)'''
+
+    # only testing
+    model = GracePL.load_from_checkpoint(checkpoint,
+                                         output_path=os.path.join(log_dir, log_name),
+                                         label_mean=label_mean, label_std=label_std, ldmk_mean=ldmk_mean, ldmk_std=ldmk_std,
+                                         node1=args.node1, node2=args.node2, node3=args.node3, node4=args.node4, learning_rate=args.learning_rate
+                                         )
+    trainer = L.Trainer()
+    test_loader = DataLoader(GraceFaceDataset(image_path=path, split='test'), batch_size=50, shuffle=False)
+    model.eval()
     trainer.test(model, dataloaders=test_loader)

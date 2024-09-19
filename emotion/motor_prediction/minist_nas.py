@@ -62,11 +62,12 @@ from torchx.components import utils
 
 def trainer(
         log_path: str,
-        node1: int,
-        node2: int,
-        node3: int,
-        node4: int,
+        hidden_size_1: int,
+        hidden_size_2: int,
         learning_rate: float,
+        epochs: int,
+        dropout: float,
+        batch_size: int,
         trial_idx: int = -1,
 ) -> specs.AppDef:
     # define the log path so we can pass it to the TorchX ``AppDef``
@@ -77,19 +78,21 @@ def trainer(
         # command line arguments to the training script
         "--log_path",
         log_path,
-        "--node1",
-        str(node1),
-        "--node2",
-        str(node2),
-        "--node3",
-        str(node3),
-        "--node4",
-        str(node4),
+        "--hidden_size_1",
+        str(hidden_size_1),
+        "--hidden_size_2",
+        str(hidden_size_2),
         "--learning_rate",
         str(learning_rate),
+        "--epochs",
+        str(epochs),
+        "--dropout",
+        str(dropout),
+        "--batch_size",
+        str(batch_size),
         # other config options
         name="trainer",
-        script="auto_ml_trainer.py",
+        script="mnist.py",
         image=torchx.version.TORCHX_IMAGE,
     )
 
@@ -118,12 +121,12 @@ from ax.runners.torchx import TorchXRunner
 log_dir = tempfile.mkdtemp()
 
 ax_runner = TorchXRunner(
-    tracker_base="auto_ml_logs/",
+    tracker_base="/tmp/",
     component=trainer,
     # NOTE: To launch this job on a cluster instead of locally you can
     # specify a different scheduler and adjust arguments appropriately.
     scheduler="local_cwd",
-    component_const_params={"log_path": "auto_ml_logs/"},
+    component_const_params={"log_path": log_dir},
     cfg={},
 )
 
@@ -152,30 +155,16 @@ parameters = [
     # would mean that ``num_params`` can't take on that many values, which
     # in turn makes the Pareto frontier look pretty weird.
     RangeParameter(
-        name="node1",
-        lower=128,
-        upper=1024,
+        name="hidden_size_1",
+        lower=16,
+        upper=128,
         parameter_type=ParameterType.INT,
         log_scale=True,
     ),
     RangeParameter(
-        name="node2",
-        lower=128,
-        upper=1024,
-        parameter_type=ParameterType.INT,
-        log_scale=True,
-    ),
-RangeParameter(
-        name="node3",
-        lower=128,
-        upper=1024,
-        parameter_type=ParameterType.INT,
-        log_scale=True,
-    ),
-RangeParameter(
-        name="node4",
-        lower=128,
-        upper=1024,
+        name="hidden_size_2",
+        lower=16,
+        upper=128,
         parameter_type=ParameterType.INT,
         log_scale=True,
     ),
@@ -185,6 +174,25 @@ RangeParameter(
         upper=1e-2,
         parameter_type=ParameterType.FLOAT,
         log_scale=True,
+    ),
+    RangeParameter(
+        name="epochs",
+        lower=1,
+        upper=4,
+        parameter_type=ParameterType.INT,
+    ),
+    RangeParameter(
+        name="dropout",
+        lower=0.0,
+        upper=0.5,
+        parameter_type=ParameterType.FLOAT,
+    ),
+    ChoiceParameter(  # NOTE: ``ChoiceParameters`` don't require log-scale
+        name="batch_size",
+        values=[32, 64, 128, 256],
+        parameter_type=ParameterType.INT,
+        is_ordered=True,
+        sort_values=True,
     ),
 ]
 
@@ -254,10 +262,10 @@ class MyTensorboardMetric(TensorboardMetric):
 # direction of the two metrics.
 #
 
-val_loss = MyTensorboardMetric(
-    name="val_L1_loss",
-    tag="val_L1_loss",
-    lower_is_better=True,
+val_acc = MyTensorboardMetric(
+    name="val_acc",
+    tag="val_acc",
+    lower_is_better=False,
 )
 model_num_params = MyTensorboardMetric(
     name="num_params",
@@ -287,14 +295,14 @@ from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 opt_config = MultiObjectiveOptimizationConfig(
     objective=MultiObjective(
         objectives=[
-            Objective(metric=val_loss, minimize=True),
+            Objective(metric=val_acc, minimize=False),
             Objective(metric=model_num_params, minimize=True),
         ],
-    )#,
-    #objective_thresholds=[
-    #    ObjectiveThreshold(metric=val_loss, bound=0.94, relative=False),
-    #    ObjectiveThreshold(metric=model_num_params, bound=80_000, relative=False),
-    #],
+    ),
+    objective_thresholds=[
+        ObjectiveThreshold(metric=val_acc, bound=0.94, relative=False),
+        ObjectiveThreshold(metric=model_num_params, bound=80_000, relative=False),
+    ],
 )
 
 ######################################################################
@@ -315,7 +323,7 @@ opt_config = MultiObjectiveOptimizationConfig(
 from ax.core import Experiment
 
 experiment = Experiment(
-    name="grace_face_net",
+    name="torchx_mnist",
     search_space=search_space,
     optimization_config=opt_config,
     runner=ax_runner,
@@ -338,7 +346,7 @@ experiment = Experiment(
 #
 
 
-total_trials = 4  # total evaluation budget
+total_trials = 48  # total evaluation budget
 
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 
@@ -457,14 +465,14 @@ _pareto_frontier_scatter_2d_plotly(experiment)
 # much easier to model than the validation accuracy (``val_acc``) metric.
 #
 
-'''from ax.modelbridge.cross_validation import compute_diagnostics, cross_validate
+from ax.modelbridge.cross_validation import compute_diagnostics, cross_validate
 from ax.plot.diagnostic import interact_cross_validation_plotly
 from ax.utils.notebook.plotting import init_notebook_plotting, render
 
 cv = cross_validate(model=gs.model)  # The surrogate model is stored on the ``GenerationStrategy``
 compute_diagnostics(cv)
 
-interact_cross_validation_plotly(cv)'''
+interact_cross_validation_plotly(cv)
 
 ######################################################################
 # We can also make contour plots to better understand how the different
@@ -476,7 +484,7 @@ interact_cross_validation_plotly(cv)'''
 
 from ax.plot.contour import interact_contour_plotly
 
-interact_contour_plotly(model=gs.model, metric_name="val_L1_loss")
+interact_contour_plotly(model=gs.model, metric_name="val_acc")
 
 ######################################################################
 # Similarly, we show the number of model parameters as a function of
