@@ -191,6 +191,53 @@ class DataCollectionNode(object):
                 random_value = random.randint(min_d, max_d)
             values.append(random_value)
         return values
+    
+    def get_faces_from_testing_outcome(self, filepath):
+        testing_outcomes = []
+        with open(filepath, "r", encoding="utf-8", newline='') as csvfile:
+            csv_reader = csv.reader(csvfile, delimiter="\t")
+            for row in csv_reader:
+                filename, label = row
+                label = label[1:-1].split(', ')
+                label = [float(i) for i in label]
+                assert len(label) == 26
+                testing_outcomes.append([filename, label])
+        
+        rospy.loginfo('Running predicted face')
+        sleep_time = 1
+
+        process_frame_index = 0
+        deleteLastFrame = False
+        while process_frame_index < len(testing_outcomes):
+            with self.motor_lock:
+                while len(self.isError) > 0: # wait until no error
+                    deleteLastFrame = True
+                    print(self.isError)
+                    self.isError = []
+                    print('detected error, start to sleep...')
+                    time.sleep(3)
+                
+                if deleteLastFrame == True: # also discard several frames
+                    deleteLastFrame = False
+                    process_frame_index = max(0, process_frame_index - 2)
+                    print('deleted last two frames.. starting from ', process_frame_index)
+                    # warn: there might be multiple rows with same title in csv
+
+                self.isError = [] # clear error 
+                print('isError cleared')
+
+            time_str = testing_outcomes[process_frame_index][0]
+            prediced_values = testing_outcomes[process_frame_index][1]
+            time.sleep(sleep_time)
+            self.move(prediced_values)
+            time.sleep(sleep_time)
+            with self.motor_lock:
+                states = self._motor_states
+            self.take_photo(self.output_img, time_str)
+            #writer2.writerow([time_str, states]) // todo write verify csv
+            process_frame_index += 1
+
+        print('Finished!')
 
 
 if __name__ == '__main__':
@@ -198,7 +245,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--is_gau", action='store_true', default=True)
     parser.add_argument("--times", type=int, default=600)
-    parser.add_argument("--output", type=str, default='dataset/gau/')
+    parser.add_argument("--output", type=str, default='dataset/predicted_motors_lrelu_img') # dataset/gau/
     args = parser.parse_args()
     print(args)
 
@@ -207,7 +254,8 @@ if __name__ == '__main__':
     cam = VideoCapture(-1)
     rospy.init_node('DataCollectionNode')
     node = DataCollectionNode(output=args.output, isGau=args.is_gau)
-    node.generate_random_face(times=args.times)
+    #node.generate_random_face(times=args.times)
+    node.get_faces_from_testing_outcome('/home/yini/grace_robot/dataset/best_model_lrelu/testing_results.csv')
     t2 = time.time()
     print('time elapse=', str(int((t2-t1))), 'sec')
     rospy.signal_shutdown('End')
