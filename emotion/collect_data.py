@@ -30,6 +30,7 @@ def handle_sigint(signalnum, frame):
 class DataCollectionNode(object):
     def __init__(self, isGau, degrees=True, output='images/test/'):
         self.isGau = isGau
+        self.isError = []
         print('isGau=', isGau)
         rospy.loginfo('Starting')
         self.output = output
@@ -58,19 +59,25 @@ class DataCollectionNode(object):
         
         self.names = motors
         time.sleep(3.0)
-        self.isError = []
         self.move_to_neutral_state()
+        time.sleep(1.0)
+        self.take_photo(self.output, 'neutral')
         time.sleep(3.0)
+
+    def motor_int_to_angle(motor, position, degrees):
+        if degrees:
+            unit = 360
+        else:
+            unit = math.pi
+        angle = ((position-motors_dict[motor]['init'])/4096)*unit
+        return angle
 
     def _capture_state(self, msg):
         self._msg = msg
         for idx, motor_msg in enumerate(msg.motor_states):
-            # todo save motor state for checking
-            '''if motor_msg.name in self.names:
-                    idx = self.motors.index(motor_msg.name)
-                    self._motor_states[idx] = motor_int_to_angle(motor_msg.name, motor_msg.position, self.degrees)'''
-
             if motor_msg.name in self.names:
+                idx = self.motors.index(motor_msg.name)
+                self._motor_states[idx] = motor_int_to_angle(motor_msg.name, motor_msg.position, self.degrees)
                 if motor_msg.errorCode != 0:
                     with self.motor_lock:
                         print('Motor error: ', motor_msg.name)
@@ -90,37 +97,42 @@ class DataCollectionNode(object):
         sleep_time = 1
         img_num_len = 5
         with open(self.output_label,'a') as csv_writer:
-            writer=csv.writer(csv_writer, delimiter='\t',lineterminator='\n',)
-            process_frame_index = starting_num
-            deleteLastFrame = False
-            while process_frame_index < times:
-                with self.motor_lock:
-                    while len(self.isError) > 0: # wait until no error
-                        deleteLastFrame = True
-                        print(self.isError)
-                        self.isError = []
-                        print('detected error, start to sleep...')
-                        time.sleep(3)
-                    
-                    if deleteLastFrame == True: # also discard several frames
-                        deleteLastFrame = False
-                        process_frame_index = max(0, process_frame_index - 2)
-                        print('deleted last two frames.. starting from ', process_frame_index)
-                        # warn: there might be multiple rows with same title in csv
+            with open(self.output_verify,'a') as csv_writer2:
+                writer=csv.writer(csv_writer, delimiter='\t',lineterminator='\n',)
+                writer2=csv.writer(csv_writer2, delimiter='\t',lineterminator='\n',)
+                process_frame_index = starting_num
+                deleteLastFrame = False
+                while process_frame_index < times:
+                    with self.motor_lock:
+                        while len(self.isError) > 0: # wait until no error
+                            deleteLastFrame = True
+                            print(self.isError)
+                            self.isError = []
+                            print('detected error, start to sleep...')
+                            time.sleep(3)
+                        
+                        if deleteLastFrame == True: # also discard several frames
+                            deleteLastFrame = False
+                            process_frame_index = max(0, process_frame_index - 2)
+                            print('deleted last two frames.. starting from ', process_frame_index)
+                            # warn: there might be multiple rows with same title in csv
 
-                    self.isError = [] # clear error 
-                    print('isError cleared')
+                        self.isError = [] # clear error 
+                        print('isError cleared')
 
-                time_str = '0' * (img_num_len - len(str(process_frame_index))) + str(process_frame_index)
-                random_values = self.get_random_movement(gaussian=self.isGau)
-                time.sleep(sleep_time)
-                self.move(random_values)
-                time.sleep(sleep_time)
-                self.take_photo(self.output_img, time_str)
+                    time_str = '0' * (img_num_len - len(str(process_frame_index))) + str(process_frame_index)
+                    random_values = self.get_random_movement(gaussian=self.isGau)
+                    time.sleep(sleep_time)
+                    self.move(random_values)
+                    time.sleep(sleep_time)
+                    with self.motor_lock:
+                        states = self._motor_states
+                    self.take_photo(self.output_img, time_str)
 
-                row = [time_str, random_values]
-                writer.writerow(row)
-                process_frame_index += 1
+                    row = [time_str, random_values]
+                    writer.writerow(row)
+                    writer2.writerow([time_str, states])
+                    process_frame_index += 1
 
         print('finised generating ', str(times-starting_num), ' frames')
 
@@ -179,14 +191,61 @@ class DataCollectionNode(object):
                 random_value = random.randint(min_d, max_d)
             values.append(random_value)
         return values
+    
+    def get_faces_from_testing_outcome(self, filepath):
+        testing_outcomes = []
+        with open(filepath, "r", encoding="utf-8", newline='') as csvfile:
+            csv_reader = csv.reader(csvfile, delimiter="\t")
+            for row in csv_reader:
+                filename, label = row
+                label = label[1:-1].split(', ')
+                label = [float(i) for i in label]
+                assert len(label) == 26
+                testing_outcomes.append([filename, label])
+        
+        rospy.loginfo('Running predicted face')
+        sleep_time = 1
+
+        process_frame_index = 0
+        deleteLastFrame = False
+        while process_frame_index < len(testing_outcomes):
+            with self.motor_lock:
+                while len(self.isError) > 0: # wait until no error
+                    deleteLastFrame = True
+                    print(self.isError)
+                    self.isError = []
+                    print('detected error, start to sleep...')
+                    time.sleep(3)
+                
+                if deleteLastFrame == True: # also discard several frames
+                    deleteLastFrame = False
+                    process_frame_index = max(0, process_frame_index - 2)
+                    print('deleted last two frames.. starting from ', process_frame_index)
+                    # warn: there might be multiple rows with same title in csv
+
+                self.isError = [] # clear error 
+                print('isError cleared')
+
+            time_str = testing_outcomes[process_frame_index][0]
+            prediced_values = testing_outcomes[process_frame_index][1]
+            time.sleep(sleep_time)
+            self.move(prediced_values)
+            time.sleep(sleep_time)
+            with self.motor_lock:
+                states = self._motor_states
+            self.take_photo(self.output_img, time_str)
+            #writer2.writerow([time_str, states]) // todo write verify csv
+            process_frame_index += 1
+
+        print('Finished!')
 
 
 if __name__ == '__main__':
     signal(SIGINT, handle_sigint)
     parser = argparse.ArgumentParser()
     parser.add_argument("--is_gau", action='store_true', default=True)
-    parser.add_argument("--times", type=int, default=100)
-    parser.add_argument("--output", type=str, default='dataset/gau/')
+    parser.add_argument("--times", type=int, default=600)
+    parser.add_argument("--output", type=str, default='dataset/predicted_motors_lrelu_img') # dataset/gau/
     args = parser.parse_args()
     print(args)
 
@@ -195,9 +254,9 @@ if __name__ == '__main__':
     cam = VideoCapture(-1)
     rospy.init_node('DataCollectionNode')
     node = DataCollectionNode(output=args.output, isGau=args.is_gau)
-    node.generate_random_face(times=args.times)
+    #node.generate_random_face(times=args.times)
+    node.get_faces_from_testing_outcome('/home/yini/grace_robot/dataset/best_model_lrelu/testing_results.csv')
     t2 = time.time()
     print('time elapse=', str(int((t2-t1))), 'sec')
     rospy.signal_shutdown('End')
     sys.exit()
-    # TODO: prove: output number=gaussian distribution, motor numbers match with physical robot face,
