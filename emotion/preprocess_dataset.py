@@ -55,6 +55,7 @@ if __name__ == '__main__':
     predictor = dlib.shape_predictor('pretrained/shape_predictor_68_face_landmarks.dat')
     face_model = load_model()
 
+    resize_dim = 112
     dataset_path_root = '/Users/xiaokeai/Documents/HKUST/projects/grace/grace_emo/dataset/'
     dataset_path = os.path.join(dataset_path_root, 'gau_600')
     img_path = os.path.join(dataset_path, 'img')
@@ -86,7 +87,7 @@ if __name__ == '__main__':
     # check last landmark, if too close then continue the loop
 
     cropped_image = neutral[y:y + h, x:x + w]
-    cropped_image = cv2.resize(cropped_image, (224, 224))
+    cropped_image = cv2.resize(cropped_image, (resize_dim, resize_dim))
 
     #last_landmark = detect_face(cropped_image) # nparray, 68,2
     last_landmark = get_face_and_ldmk(cropped_image, face_model)
@@ -95,7 +96,7 @@ if __name__ == '__main__':
         img_name = filename.split('/')[-1]
         image = cv2.imread(filename)
         cropped_image = image[y:y + h, x:x + w]
-        cropped_image = cv2.resize(cropped_image, (224, 224))
+        cropped_image = cv2.resize(cropped_image, (resize_dim, resize_dim))
 
         #landmark = detect_face(cropped_image)
         landmark = get_face_and_ldmk(cropped_image, face_model)

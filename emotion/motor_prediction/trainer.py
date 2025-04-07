@@ -17,9 +17,9 @@ device = get_device()
 # define the LightningModule
 class GracePL(L.LightningModule):
     def __init__(self, output_path, label_mean, label_std, ldmk_mean, ldmk_std,
-                 node1, node2, node3, node4, learning_rate, autoML=False):
+                 node1, node2, node3, node4, learning_rate, use_image_embed, autoML=False):
         super().__init__()
-        self.model = GraceModel(node1, node2, node3, node4)
+        self.model = GraceModel(node1, node2, node3, node4, use_image_embed)
         self.mse_loss = nn.MSELoss()
         self.L1_loss = nn.L1Loss()
         self.label_mean = label_mean
@@ -35,9 +35,11 @@ class GracePL(L.LightningModule):
     def training_step(self, batch, batch_idx):
         images, ldmks, labels = batch
         images, ldmks, labels = images.to(device), ldmks.to(device), labels.to(device)
+        images = images.permute(0, 3, 1, 2)
+        images /= 255.0
         ldmks = (ldmks - self.ldmk_mean) / self.ldmk_std
         labels = (labels - self.label_mean) / self.label_std
-        y = self.model(ldmks)
+        y = self.model(ldmks, images)
         loss = self.mse_loss(y, labels)
         if not self.isAutoML:
             self.log("train_mse_loss", loss, prog_bar=True)
@@ -46,8 +48,10 @@ class GracePL(L.LightningModule):
     def validation_step(self, batch, batch_idx):
         images, ldmks, labels = batch
         images, ldmks, labels = images.to(device), ldmks.to(device), labels.to(device)
+        images = images.permute(0, 3, 1, 2)
+        images /= 255.0
         ldmks = (ldmks - self.ldmk_mean) / self.ldmk_std
-        y = self.model(ldmks)
+        y = self.model(ldmks, images)
 
         labels_normed = (labels - self.label_mean) / self.label_std
         loss_normed = self.L1_loss(y, labels_normed)
@@ -62,8 +66,10 @@ class GracePL(L.LightningModule):
     def test_step(self, batch, batch_idx):
         images, ldmks, labels, filename = batch
         images, ldmks, labels = images.to(device), ldmks.to(device), labels.to(device)
+        images = images.permute(0, 3, 1, 2)
+        images /= 255.0
         ldmks = (ldmks - self.ldmk_mean) / self.ldmk_std
-        y = self.model(ldmks)
+        y = self.model(ldmks, images)
         y = y * self.label_std + self.label_mean
         loss = self.L1_loss(y, labels)
         self.log("test_L1_loss", loss, prog_bar=False)
@@ -98,7 +104,8 @@ if __name__ == '__main__':
 
     path = 'grace_emo/dataset/processed_gau_600/'
     log_dir = "grace_emo/emotion/motor_prediction/lightning_logs/"
-    log_name = "5-layer NN_split"
+    log_name = "face_embed"
+    use_image_embed = True
 
     args = parse_args()
     tb_logger = pl_loggers.TensorBoardLogger(save_dir=os.path.join(log_dir, log_name))
@@ -107,7 +114,7 @@ if __name__ == '__main__':
 
     # training and testing
     model = GracePL(os.path.join(log_dir, log_name), label_mean, label_std, ldmk_mean, ldmk_std,
-                    args.node1, args.node2, args.node3, args.node4, args.learning_rate)
+                    args.node1, args.node2, args.node3, args.node4, args.learning_rate, use_image_embed)
 
     train_loader = DataLoader(GraceFaceDataset(image_path=path, split='train'), batch_size=32, shuffle=True, num_workers=11, persistent_workers=True)
     test_loader = DataLoader(GraceFaceDataset(image_path=path, split='test'), batch_size=50, shuffle=False)

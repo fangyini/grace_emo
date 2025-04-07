@@ -22,7 +22,6 @@ class GraceFaceDataset():
         elif split == 'test':
             self.data = filenames[int(total_len*0.9):]
         print('len=', len(self.data))
-        print('Images are currently not used!')
 
         '''index_list_file = os.path.join(image_path, 'index_files/' + str(split) + '.txt')
         with open(index_list_file, 'rb') as fp:

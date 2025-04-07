@@ -188,3 +188,16 @@ cython_debug/
 .pretrained/
 .images/
 .dataset/
+
+ETFG/checkpoints/*
+ETFG/lightning_logs/*
+ETFG/MEAD_features/*
+
+python_ipynb/
+images/
+pretrained/
+
+emotion/motor_prediction/MNIST/
+emotion/motor_prediction/lightning_logs/
+emotion/motor_prediction/test/
+dataset/
