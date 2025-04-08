@@ -4,13 +4,13 @@ from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
-from dataset.dataset import MEADDataset, collate_fn, LandmarkNormalize, AudioNormalize
-from model.model import MEADFeaturePredictor
+from ETFG.dataset.dataset import MEADDataset, collate_fn, LandmarkNormalize, AudioNormalize
+from ETFG.model.model import MEADFeaturePredictor
 from torchvision import transforms
-from config import get_config
+from ETFG.config import get_config
 
 if torch.cuda.is_available():
-    device = "cuda:0"
+    device = "cuda"
 else:
     device = "cpu"
 
