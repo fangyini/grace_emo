@@ -7,62 +7,27 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from dataset.dataset import MEADDataset, collate_fn, LandmarkNormalize, AudioNormalize
 from model.model import MEADFeaturePredictor
 from torchvision import transforms
+from config import get_config
 
-'''if torch.cuda.is_available():
+if torch.cuda.is_available():
     device = "cuda:0"
-elif torch.backends.mps.is_available():
-    device = "mps"
 else:
-    device = "cpu"'''
-device = "cpu"
+    device = "cpu"
 
 def main():
-    # Configuration of face_embed
-    face_embed_config = {
-        'feature_root': './MEAD_features/',
-        'train_subjects': ['M003',],
-        'val_subjects': ['M005'],
-        'test_subjects': ['M005'],
-        'emotion_labels': ['angry', 'contempt', 'disgusted', 'fear', 'happy', 'sad', 'surprised', 'neutral'],
-        'feature_type': 'face_embed',  # 'ldmk' or 'face_embed'
-        'batch_size': 32,
-        'num_workers': 0,
-        'max_epochs': 300,
-        'learning_rate': 1e-4,
-        'hidden_dim': 128,
-        'num_layers': 3,
-        'emotion_embedding_dim': 32,
-        'log_name': 'face_embed',  # Name for the experiment logs
-        'audio_transform': None,
-        'target_transform': None
-    }
-
-    # Configuration of ldmk
-    ldmk_config = {
-        'feature_root': './MEAD_features/',
-        'train_subjects': ['M003', ],
-        'val_subjects': ['M005'],
-        'test_subjects': ['M005'],
-        'emotion_labels': ['angry', 'contempt', 'disgusted', 'fear', 'happy', 'sad', 'surprised', 'neutral'],
-        'feature_type': 'ldmk',  # 'ldmk' or 'face_embed'
-        'batch_size': 32,
-        'num_workers': 0,
-        'max_epochs': 300,
-        'learning_rate': 1e-4,
-        'hidden_dim': 64,
-        'num_layers': 3,
-        'emotion_embedding_dim': 32,
-        'log_name': 'ldmk',  # Name for the experiment logs
-        'audio_transform': None,
-        'target_transform': transforms.Compose([
+    # Get configuration from YAML file
+    config = get_config()
+    
+    # Set up transforms
+    if config['feature_type'] == 'ldmk':
+        config['target_transform'] = transforms.Compose([
             LandmarkNormalize()
         ])
-    }
-    config = face_embed_config
     
     # Create datasets
     train_dataset = MEADDataset(
-        root_dir=config['feature_root'],
+        visual_root_dir=config['visual_feature_root'],
+        audio_root_dir=config['audio_feature_root'],
         subjects=config['train_subjects'],
         emotion_labels=config['emotion_labels'],
         feature_type=config['feature_type'],
@@ -71,7 +36,8 @@ def main():
     )
     
     val_dataset = MEADDataset(
-        root_dir=config['feature_root'],
+        visual_root_dir=config['visual_feature_root'],
+        audio_root_dir=config['audio_feature_root'],
         subjects=config['val_subjects'],
         emotion_labels=config['emotion_labels'],
         feature_type=config['feature_type'],
@@ -108,7 +74,8 @@ def main():
         learning_rate=config['learning_rate'],
         emotion_embedding_dim=config['emotion_embedding_dim'],
         num_emotions=len(config['emotion_labels']),
-        feature_type=config['feature_type']
+        feature_type=config['feature_type'],
+        architecture_type=config['architecture_type']
     )
     
     # Create callbacks
@@ -119,19 +86,19 @@ def main():
         verbose=True
     )
     
+    # Create logger
+    logger = TensorBoardLogger(
+        config['lightning_log_root'],
+        name=config['log_name']
+    )
+    
     checkpoint_callback = ModelCheckpoint(
         monitor='val_loss',
-        dirpath='checkpoints',
+        dirpath=os.path.join(logger.log_dir, "checkpoints"),
         filename=f"{config['log_name']}-{{epoch:02d}}-{{val_loss:.2f}}",
         save_top_k=2,  # Save only the best and latest checkpoints
         mode='min',
         save_last=True  # Always save the latest checkpoint
-    )
-    
-    # Create logger
-    logger = TensorBoardLogger(
-        "lightning_logs",
-        name=config['log_name']
     )
     
     # Create trainer
@@ -170,11 +137,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    # todo: end token? assume same length?
-    # todo: why max len is sometimes audio sometimes video?
-    # audio to hubert feature.
-    # audio transform no need!
-
-    # input should be neutral sound?
-    # output should be ldmk plus changed sound? -> not provided in the dataset, assume gpt generates
-    # English only?

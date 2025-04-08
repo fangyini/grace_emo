@@ -14,7 +14,7 @@ import time
 
 
 # some global configs
-trained_model='/Users/xiaokeai/Documents/HKUST/projects/grace/grace_emo/pytorch_face_landmark/Retinaface/weights/mobilenet0.25_Final.pth'
+trained_model='pytorch_face_landmark/Retinaface/weights/mobilenet0.25_Final.pth'
 network='mobile0.25'
 confidence_threshold = 0.9
 top_k = 5000

@@ -45,7 +45,8 @@ class AudioNormalize:
 
 class MEADDataset(Dataset):
     def __init__(self, 
-                 root_dir: str,
+                 visual_root_dir: str,
+                 audio_root_dir: str,
                  subjects: List[str],
                  emotion_labels: List[str],
                  feature_type: str = 'ldmk',  # 'ldmk' or 'face_embed'
@@ -54,13 +55,15 @@ class MEADDataset(Dataset):
                  ):
         """
         Args:
-            root_dir: Path to the MEAD features directory
+            visual_root_dir: Path to the directory containing visual features (ldmk and face_embed)
+            audio_root_dir: Path to the directory containing audio features (mfcc)
             subjects: List of subject IDs to include
             emotion_labels: List of emotion labels to include
             feature_type: Type of feature to use as target ('ldmk' or 'face_embed')
             transform: Optional transforms to apply
         """
-        self.root_dir = root_dir
+        self.visual_root_dir = visual_root_dir
+        self.audio_root_dir = audio_root_dir
         self.subjects = subjects
         self.emotion_labels = emotion_labels
         self.feature_type = feature_type
@@ -73,59 +76,99 @@ class MEADDataset(Dataset):
         # Collect all feature files
         self.feature_files = []
         self.emotion_indices = []
-        print('testing code, delete later.')
+        
+        # Keep track of skipped files for reporting
+        skipped_files = {
+            'missing_subject': 0,
+            'missing_emotion': 0,
+            'missing_level': 0,
+            'missing_audio': 0
+        }
         
         for subject in subjects:
-            subject_path = os.path.join(root_dir, subject)
-            if not os.path.exists(subject_path):
-                print(f"Warning: Subject {subject} not found")
+            # Visual features path
+            visual_subject_path = os.path.join(visual_root_dir, subject)
+            # Audio features path
+            audio_subject_path = os.path.join(audio_root_dir, subject)
+            
+            if not os.path.exists(visual_subject_path) or not os.path.exists(audio_subject_path):
+                print(f"Warning: Subject {subject} not found in either visual or audio directory")
+                skipped_files['missing_subject'] += 1
                 continue
                 
             for emotion in emotion_labels:
-                emotion_path = os.path.join(subject_path, emotion)
-                if not os.path.exists(emotion_path):
+                visual_emotion_path = os.path.join(visual_subject_path, emotion)
+                audio_emotion_path = os.path.join(audio_subject_path, emotion)
+                
+                if not os.path.exists(visual_emotion_path) or not os.path.exists(audio_emotion_path):
                     print(f"Warning: Emotion {emotion} not found for subject {subject}")
+                    skipped_files['missing_emotion'] += 1
                     continue
                     
                 # Look for level_1 for neutral, level_2 for others
                 level = 'level_1' if emotion == 'neutral' else 'level_2'
-                level_path = os.path.join(emotion_path, level)
+                visual_level_path = os.path.join(visual_emotion_path, level)
+                audio_level_path = os.path.join(audio_emotion_path, level)
                 
-                if not os.path.exists(level_path):
+                if not os.path.exists(visual_level_path) or not os.path.exists(audio_level_path):
                     print(f"Warning: Level {level} not found for {emotion} in subject {subject}")
+                    skipped_files['missing_level'] += 1
                     continue
                 
-                # Add all npz files in this directory
-                for file in os.listdir(level_path):
-                    if file.endswith('.npz'):
-                        self.feature_files.append(os.path.join(level_path, file))
-                        self.emotion_indices.append(self.emotion_to_idx[emotion])
+                # Get all visual feature files
+                visual_files = [f for f in os.listdir(visual_level_path) if f.endswith('.npz')]
+                for visual_file in visual_files:
+                    # Check if corresponding audio file exists
+                    audio_file = os.path.join(audio_level_path, visual_file)
+                    if not os.path.exists(audio_file):
+                        skipped_files['missing_audio'] += 1
+                        continue
+                        
+                    # Both files exist, add them to the dataset
+                    self.feature_files.append((
+                        os.path.join(visual_level_path, visual_file),
+                        audio_file
+                    ))
+                    self.emotion_indices.append(self.emotion_to_idx[emotion])
         
-        print(f"Loaded {len(self.feature_files)} feature files")
+        # Print summary of loaded and skipped files
+        print(f"\nDataset Loading Summary:")
+        print(f"Successfully loaded {len(self.feature_files)} video pairs")
+        print(f"Skipped due to missing subject: {skipped_files['missing_subject']}")
+        print(f"Skipped due to missing emotion: {skipped_files['missing_emotion']}")
+        print(f"Skipped due to missing level: {skipped_files['missing_level']}")
+        print(f"Skipped due to missing audio file: {skipped_files['missing_audio']}")
         
     def __len__(self) -> int:
         return len(self.feature_files)
     
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
+        Get a sample from the dataset
+        Args:
+            idx: Index of the sample
         Returns:
             Tuple of (audio_features, target_features, emotion_label)
         """
-        # Load features from npz file
-        features = np.load(self.feature_files[idx])
+        # Get the feature file paths and emotion index
+        visual_file, audio_file = self.feature_files[idx]
+        emotion_idx = self.emotion_indices[idx]
         
-        # Extract features
-        audio_features = torch.FloatTensor(features['mfcc'])
-        target_features = torch.FloatTensor(features[self.feature_type])
-        if self.feature_type == 'ldmk':
-            target_features = target_features.flatten(1, 2)
-        emotion_label = torch.LongTensor([self.emotion_indices[idx]])[0]
-        # todo testing only, delete later
-        target_features = target_features[:audio_features.size()[0]]
-        # Apply transforms if any
+        # Load visual features
+        visual_features = np.load(visual_file)
+        target_features = torch.from_numpy(visual_features[self.feature_type]).float()
+            
+        # Load audio features
+        audio_features = np.load(audio_file)
+        audio_features = torch.from_numpy(audio_features['mfcc']).float()
+        
+        # Apply transforms if specified
         if self.audio_transform:
             audio_features = self.audio_transform(audio_features)
         if self.target_transform:
             target_features = self.target_transform(target_features)
+            
+        # Convert emotion index to tensor
+        emotion_label = torch.tensor(emotion_idx, dtype=torch.long)
         
         return audio_features, target_features, emotion_label 

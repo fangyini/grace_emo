@@ -1,0 +1,24 @@
+# Dataset paths
+visual_feature_root: './ETFG/MEAD_features/visual/'  # Directory containing ldmk and face_embed features
+audio_feature_root: './ETFG/MEAD_features/audio/'    # Directory containing mfcc features
+
+# Dataset configuration
+train_subjects: ['M003']
+val_subjects: ['M005']
+test_subjects: ['M005']
+emotion_labels: ['angry', 'contempt', 'disgusted', 'fear', 'happy', 'sad', 'surprised', 'neutral']
+
+# Model configuration
+feature_type: 'ldmk'
+batch_size: 32
+num_workers: 0
+max_epochs: 300
+learning_rate: 0.0001
+hidden_dim: 64
+num_layers: 3
+emotion_embedding_dim: 32
+architecture_type: 'encoder_only'  # 'encoder_only' or 'encoder_decoder'
+
+# Logging configuration
+log_name: 'ldmk'
+lightning_log_root: './ETFG/lightning_logs'  # Root directory for lightning logs

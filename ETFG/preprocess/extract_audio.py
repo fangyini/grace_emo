@@ -1,6 +1,5 @@
 import librosa
 import numpy as np
-import soundfile as sf
 import os
 
 config = {
@@ -17,24 +16,30 @@ def extract_mfcc(file_path, target_num_frames):
     input_list = np.stack(input_list)
     return input_list'''
 
-# get mfcc feature from audio file
-def mfcc_from_file(audio_path, n_mfcc=config['n_mfcc'], sample_interval=config['sample_interval'], window_len=config['window_len'],
+def extract_audio_from_video(video_path):
+    """Extract audio from video file using librosa"""
+    try:
+        audio, sr = librosa.load(video_path, sr=None)
+        return audio, sr
+    except Exception as e:
+        print(f"Error extracting audio from video {video_path}: {str(e)}")
+        raise
+
+# get mfcc feature from audio file or video file
+def mfcc_from_file(file_path, n_mfcc=config['n_mfcc'], sample_interval=config['sample_interval'], window_len=config['window_len'],
                    target_num_frames=None):
     # Check file extension
-    file_ext = os.path.splitext(audio_path)[1].lower()
+    file_ext = os.path.splitext(file_path)[1].lower()
     
     try:
-        if file_ext in ['.m4a', '.mp3', '.wav']:
-            # Use librosa for M4A, MP3, and WAV files
-            audio, sr = librosa.load(audio_path, sr=None)
+        if file_ext in ['.mp4', '.avi', '.mov']:
+            # Extract audio from video file
+            audio, sr = extract_audio_from_video(file_path)
         else:
-            # Use soundfile for other formats
-            audio, sr = sf.read(audio_path)
-            if len(audio.shape) > 1:
-                audio = audio.mean(axis=1)
-            audio = audio.astype(np.float32)
+            # Load audio file directly
+            audio, sr = librosa.load(file_path, sr=None)
     except Exception as e:
-        print(f"Error loading audio file {audio_path}: {str(e)}")
+        print(f"Error loading file {file_path}: {str(e)}")
         raise
 
     hop_length = int(sample_interval * sr)

@@ -22,7 +22,7 @@ else:
     map_location = "cpu"
 
 model = MobileFaceNet([112, 112],136)
-checkpoint = torch.load('/Users/xiaokeai/Documents/HKUST/projects/grace/grace_emo/pytorch_face_landmark/checkpoint/mobilefacenet_model_best.pth.tar', map_location=map_location)
+checkpoint = torch.load('pytorch_face_landmark/checkpoint/mobilefacenet_model_best.pth.tar', map_location=map_location)
 print('Use MobileFaceNet as backbone')
 model.load_state_dict(checkpoint['state_dict'])
 model = model.eval().to(map_location)
@@ -167,12 +167,28 @@ def extract_features_batch(cropped_faces, bboxes, batch_size=32):
     
     return all_landmarks, all_facial_feats
 
-def extract_facial(video_path):
-    ldmk_stack, face_embed_stack = process_video_frames(video_path)
+def extract_facial(video_path, detection_bs, feat_bs):
+    ldmk_stack, face_embed_stack = process_video_frames(video_path, detection_bs, feat_bs)
     return ldmk_stack, face_embed_stack
 
+def get_num_of_frames(video_path):
+    num_of_frames = 0
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise ValueError(f"Cannot open video: {video_path}")
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        num_of_frames += 1
 
-def process_video_frames(video_path, batch_size=16):
+    cap.release()
+
+    if num_of_frames == 0:
+        raise ValueError(f"No frames found in video: {video_path}")
+    return num_of_frames
+
+def process_video_frames(video_path, detection_bs=16, feat_bs=64):
     """
     Process video frames in batches for faster facial feature extraction
     """
@@ -193,9 +209,9 @@ def process_video_frames(video_path, batch_size=16):
     if not all_frames:
         raise ValueError(f"No frames found in video: {video_path}")
 
-    faces, bboxes, dx_dy_edx_edy = detect_faces_batch(all_frames, batch_size=batch_size)
+    faces, bboxes, dx_dy_edx_edy = detect_faces_batch(all_frames, batch_size=detection_bs)
     cropped_faces = crop_and_resize_faces_batch(all_frames, bboxes, dx_dy_edx_edy)
-    landmarks, facial_feats = extract_features_batch(cropped_faces, bboxes, batch_size=64)
+    landmarks, facial_feats = extract_features_batch(cropped_faces, bboxes, batch_size=feat_bs)
     
     # Stack results
     landmarks_stack = np.stack(landmarks)
