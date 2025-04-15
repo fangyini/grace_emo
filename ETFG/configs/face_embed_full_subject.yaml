@@ -10,11 +10,11 @@ train_subjects: ['M007', 'M009', 'M011', 'M012', 'M013', 'M019', 'M022', 'M023',
 val_subjects: ['M005', 'M031', 'W016', 'W011']
 test_subjects: ['W015', 'M003', 'M030', 'W009']
 emotion_labels: ['angry', 'contempt', 'disgusted', 'fear', 'happy', 'sad', 'surprised', 'neutral']
-intensity_level: 'level_2'
+intensity_level: 'level_3'
 
 # Model configuration
 feature_type: 'face_embed'
-batch_size: 32
+batch_size: 256
 num_workers: 0
 max_epochs: 300
 learning_rate: 0.0001
@@ -24,7 +24,7 @@ emotion_embedding_dim: 32
 architecture_type: 'encoder_only'  # 'encoder_only' or 'encoder_decoder'
 
 # Logging configuration
-log_name: 'face_embed_level2'
+log_name: 'face_embed_level3'
 lightning_log_root: './ETFG/lightning_logs'  # Root directory for lightning logs
 
 
