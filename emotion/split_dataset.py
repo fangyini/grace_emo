@@ -3,7 +3,7 @@ import glob
 
 import numpy as np
 
-dataset_path = 'grace_emo/dataset/processed_gau_600/'
+dataset_path = '/Users/xiaokeai/Documents/HKUST/projects/grace/grace_emo/dataset/updated_gau_1000_features/'
 index_path = os.path.join(dataset_path, 'index_files')
 if not os.path.exists(index_path):
     os.makedirs(index_path)

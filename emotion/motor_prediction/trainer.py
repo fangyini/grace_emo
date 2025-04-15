@@ -12,46 +12,43 @@ from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 import argparse
 import pandas as pd
 import csv
+import torch
 device = get_device()
 
 # define the LightningModule
 class GracePL(L.LightningModule):
-    def __init__(self, output_path, label_mean, label_std, ldmk_mean, ldmk_std,
-                 node1, node2, node3, node4, learning_rate, use_image_embed, autoML=False):
+    def __init__(self, output_path, label_mean, label_std,
+                 learning_rate, feature_type='face_embed', autoML=False):
         super().__init__()
-        self.model = GraceModel(node1, node2, node3, node4, use_image_embed)
+        self.model = GraceModel(feature_type)
         self.mse_loss = nn.MSELoss()
         self.L1_loss = nn.L1Loss()
         self.label_mean = label_mean
         self.label_std = label_std
-        self.ldmk_mean = ldmk_mean
-        self.ldmk_std = ldmk_std
         self.lr = learning_rate
+        self.feature_type = feature_type
         self.isAutoML = autoML
         print('Output path=', output_path)
         self.csv_file = os.path.join(output_path, 'testing_results.csv')
         self.test_step_outputs = []
 
     def training_step(self, batch, batch_idx):
-        images, ldmks, labels = batch
-        images, ldmks, labels = images.to(device), ldmks.to(device), labels.to(device)
-        images = images.permute(0, 3, 1, 2)
-        images /= 255.0
-        ldmks = (ldmks - self.ldmk_mean) / self.ldmk_std
+        features, labels = batch
+        features, labels = features.to(device), labels.to(device)
+        
+        # Labels are still normalized with z-score
         labels = (labels - self.label_mean) / self.label_std
-        y = self.model(ldmks, images)
+        y = self.model(features)
         loss = self.mse_loss(y, labels)
         if not self.isAutoML:
             self.log("train_mse_loss", loss, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        images, ldmks, labels = batch
-        images, ldmks, labels = images.to(device), ldmks.to(device), labels.to(device)
-        images = images.permute(0, 3, 1, 2)
-        images /= 255.0
-        ldmks = (ldmks - self.ldmk_mean) / self.ldmk_std
-        y = self.model(ldmks, images)
+        features, labels = batch
+        features, labels = features.to(device), labels.to(device)
+        
+        y = self.model(features)
 
         labels_normed = (labels - self.label_mean) / self.label_std
         loss_normed = self.L1_loss(y, labels_normed)
@@ -64,12 +61,10 @@ class GracePL(L.LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx):
-        images, ldmks, labels, filename = batch
-        images, ldmks, labels = images.to(device), ldmks.to(device), labels.to(device)
-        images = images.permute(0, 3, 1, 2)
-        images /= 255.0
-        ldmks = (ldmks - self.ldmk_mean) / self.ldmk_std
-        y = self.model(ldmks, images)
+        features, labels, filename = batch
+        features, labels = features.to(device), labels.to(device)
+        
+        y = self.model(features)
         y = y * self.label_std + self.label_mean
         loss = self.L1_loss(y, labels)
         self.log("test_L1_loss", loss, prog_bar=False)
@@ -95,38 +90,36 @@ class GracePL(L.LightningModule):
 if __name__ == '__main__':
     def parse_args():
         parser = argparse.ArgumentParser(description="train grace face net")
-        parser.add_argument("--node1", type=int, default=256)
-        parser.add_argument("--node2", type=int, default=512)
-        parser.add_argument("--node3", type=int, default=1024)
-        parser.add_argument("--node4", type=int, default=128)
         parser.add_argument("--learning_rate", type=float, default=1e-3)
+        parser.add_argument("--feature_type", type=str, default='face_embed', choices=['face_embed', 'ldmk'])
         return parser.parse_args()
 
-    path = 'grace_emo/dataset/processed_gau_600/'
-    log_dir = "grace_emo/emotion/motor_prediction/lightning_logs/"
+    path = '/Users/xiaokeai/Documents/HKUST/projects/grace/grace_emo/dataset/updated_gau_1000_features/'
+    log_dir = "/Users/xiaokeai/Documents/HKUST/projects/grace/grace_emo/emotion/motor_prediction/lightning_logs/"
     log_name = "face_embed"
-    use_image_embed = True
-
     args = parse_args()
+
     tb_logger = pl_loggers.TensorBoardLogger(save_dir=os.path.join(log_dir, log_name))
     label_mean, label_std, ldmk_mean, ldmk_std = calculate_data_stat(path)
     print(f"data stat: label mean={label_mean}, label std={label_std}, ldmk mean={ldmk_mean}, ldmk_std={ldmk_std}")
 
     # training and testing
-    model = GracePL(os.path.join(log_dir, log_name), label_mean, label_std, ldmk_mean, ldmk_std,
-                    args.node1, args.node2, args.node3, args.node4, args.learning_rate, use_image_embed)
+    model = GracePL(os.path.join(log_dir, log_name), label_mean, label_std,
+                    args.learning_rate, args.feature_type)
 
-    train_loader = DataLoader(GraceFaceDataset(image_path=path, split='train'), batch_size=32, shuffle=True, num_workers=11, persistent_workers=True)
-    test_loader = DataLoader(GraceFaceDataset(image_path=path, split='test'), batch_size=50, shuffle=False)
-    val_loader = DataLoader(GraceFaceDataset(image_path=path, split='val'), batch_size=50, shuffle=False)
+    train_loader = DataLoader(GraceFaceDataset(image_path=path, split='train', feature_type=args.feature_type), 
+                            batch_size=32, shuffle=True, num_workers=11, persistent_workers=True)
+    test_loader = DataLoader(GraceFaceDataset(image_path=path, split='test', feature_type=args.feature_type), 
+                            batch_size=50, shuffle=False)
+    val_loader = DataLoader(GraceFaceDataset(image_path=path, split='val', feature_type=args.feature_type), 
+                            batch_size=50, shuffle=False)
 
     early_stop_callback = EarlyStopping(monitor="val_L1_loss", patience=500, verbose=False, mode="min")
-    trainer = L.Trainer(max_epochs=200000, # still too small?
+    trainer = L.Trainer(max_epochs=200000,
                         log_every_n_steps=10,
                         logger=tb_logger,
                         callbacks=[early_stop_callback])
-    trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=val_loader,)
-                #ckpt_path=checkpoint)
+    trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=val_loader)
     trainer.test(model, dataloaders=test_loader)
 
     # only testing
@@ -135,7 +128,7 @@ if __name__ == '__main__':
     model = GracePL.load_from_checkpoint(checkpoint,
                                          output_path=os.path.join(log_dir, log_name),
                                          label_mean=label_mean, label_std=label_std, ldmk_mean=ldmk_mean, ldmk_std=ldmk_std,
-                                         node1=args.node1, node2=args.node2, node3=args.node3, node4=args.node4, learning_rate=args.learning_rate
+                                         learning_rate=args.learning_rate
                                          )
     trainer = L.Trainer()
     test_loader = DataLoader(GraceFaceDataset(image_path=path, split='test'), batch_size=50, shuffle=False)

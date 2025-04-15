@@ -138,13 +138,15 @@ def get_face_and_ldmk(img, model, getBoundingBox=False,
     test_face = test_face.reshape((1,) + test_face.shape)
     input = torch.from_numpy(test_face).float()
     input = torch.autograd.Variable(input)
-    if backbone == 'MobileFaceNet':
+    '''if backbone == 'MobileFaceNet':
         landmark = model(input)[0].cpu().data.numpy()
     else:
-        landmark = model(input).cpu().data.numpy()
+        landmark = model(input).cpu().data.numpy()'''
+    with torch.no_grad():
+        landmark, facial_feats = model(input, returnFeatureAndLdmk=True)
     landmark = landmark.reshape(-1, 2)
     landmark = new_bbox.reprojectLandmark(landmark)
-    return landmark
+    return landmark, facial_feats
 
 if __name__ == '__main__':
     if args.backbone=='MobileNet': # choose
