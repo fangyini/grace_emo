@@ -32,7 +32,8 @@ def main():
         emotion_labels=config['emotion_labels'],
         feature_type=config['feature_type'],
         audio_transform=config['audio_transform'],
-        target_transform=config['target_transform']
+        target_transform=config['target_transform'],
+        intensity_level=config['intensity_level']
     )
     
     val_dataset = MEADDataset(
@@ -42,7 +43,8 @@ def main():
         emotion_labels=config['emotion_labels'],
         feature_type=config['feature_type'],
         audio_transform=config['audio_transform'],
-        target_transform=config['target_transform']
+        target_transform=config['target_transform'],
+        intensity_level=config['intensity_level']
     )
     
     # Create dataloaders with collate_fn
@@ -121,7 +123,8 @@ def main():
         emotion_labels=config['emotion_labels'],
         feature_type=config['feature_type'],
         audio_transform=config['audio_transform'],
-        target_transform=config['target_transform']
+        target_transform=config['target_transform'],
+        intensity_level=config['intensity_level']
     )
     
     test_loader = DataLoader(

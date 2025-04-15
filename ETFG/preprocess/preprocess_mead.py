@@ -124,8 +124,8 @@ def process_all_modalities(input_root, output_root, level, camera_degree, partit
 
 parser = argparse.ArgumentParser(description='Dataset process')
 parser.add_argument('--root_dir', type=str, default='/Users/xiaokeai/Documents/HKUST/datasets/MEAD/data/')
-parser.add_argument('--feature_path', type=str, default='../MEAD_audio_from_video_features/')
-parser.add_argument('--process_level', type=str, default='level_2')
+parser.add_argument('--feature_path', type=str, default='/Users/xiaokeai/Documents/HKUST/datasets/MEAD/MEAD_audio_from_video_features/')
+parser.add_argument('--process_level', type=str, default='level_3')
 parser.add_argument('--camera_degree', type=str, default='front')
 parser.add_argument('--feature_choice', type=str, default='audio') # audio, visual
 parser.add_argument('--audio_from_video', action='store_true')

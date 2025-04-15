@@ -49,6 +49,7 @@ class MEADDataset(Dataset):
                  audio_root_dir: str,
                  subjects: List[str],
                  emotion_labels: List[str],
+                 intensity_level,
                  feature_type: str = 'ldmk',  # 'ldmk' or 'face_embed'
                  audio_transform=None,
                  target_transform=None
@@ -106,7 +107,7 @@ class MEADDataset(Dataset):
                     continue
                     
                 # Look for level_1 for neutral, level_2 for others
-                level = 'level_1' if emotion == 'neutral' else 'level_2'
+                level = 'level_1' if emotion == 'neutral' else intensity_level
                 visual_level_path = os.path.join(visual_emotion_path, level)
                 audio_level_path = os.path.join(audio_emotion_path, level)
                 
@@ -157,7 +158,8 @@ class MEADDataset(Dataset):
         # Load visual features
         visual_features = np.load(visual_file)
         target_features = torch.from_numpy(visual_features[self.feature_type]).float()
-            
+        if self.feature_type == 'ldmk':
+            target_features = torch.flatten(target_features, 1, 2)
         # Load audio features
         audio_features = np.load(audio_file)
         audio_features = torch.from_numpy(audio_features['mfcc']).float()

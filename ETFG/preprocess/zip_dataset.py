@@ -28,7 +28,9 @@ def zip_dataset(source_dir, output_zip, process_level):
             subject, data_type, front, emotion = path_parts[:4]
             
             # Skip if not in video/front or audio directory
-            if data_type not in ['video', 'audio']:
+            #if data_type not in ['video', 'audio']:
+            #    continue
+            if data_type != 'video':
                 continue
                 
             if data_type == 'video' and front != 'front':
@@ -43,7 +45,7 @@ def zip_dataset(source_dir, output_zip, process_level):
                 # - Non-neutral emotion and not process_level
                 if emotion != 'neutral' and level != process_level:
                     continue
-                if emotion == 'neutral' and level != 'level_1':
+                if emotion == 'neutral': # and level != 'level_1':
                     continue
             
             # Add files to zip
@@ -56,9 +58,9 @@ def zip_dataset(source_dir, output_zip, process_level):
 
 if __name__ == "__main__":
     # Example usage
-    source_directory = '/Users/xiaokeai/Downloads/MEAD/'  # Adjust this path as needed
-    output_zip_file = '/Users/xiaokeai/Downloads/MEAD_zipped.zip'
-    process_level = 'level_2'
+    source_directory = '/Users/xiaokeai/Documents/HKUST/datasets/MEAD/data/'  # Adjust this path as needed
+    output_zip_file = '/Users/xiaokeai/Downloads/MEAD_zipped_l3.zip'
+    process_level = 'level_3'
     
     print(f"Starting to zip dataset from {source_directory}...")
     zip_dataset(source_directory, output_zip_file, process_level)
