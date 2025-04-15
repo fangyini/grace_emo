@@ -100,27 +100,27 @@ class EvaluationPipeline:
         self.current_length += 1
         
         # Convert buffers to tensors
-        audio_features = torch.stack(self.audio_buffer)
-        emotion_labels = torch.stack(self.emotion_buffer)
+        audio_features = torch.stack(self.audio_buffer)  # [current_length, feature_dim]
+        emotion_labels = torch.stack(self.emotion_buffer)  # [current_length, label_dim]
         input_lengths = torch.tensor([self.current_length], dtype=torch.long)
         
-        # Process through ETFG model
+        # Process through ETFG model - get features for all frames up to current
         features = self.etfg_model(
-            audio_features.unsqueeze(0),  # Add batch dimension
-            emotion_labels.unsqueeze(0),  # Add batch dimension
+            audio_features.unsqueeze(0),  # Add batch dimension: [1, current_length, feature_dim]
+            emotion_labels.unsqueeze(0),  # Add batch dimension: [1, current_length, label_dim]
             input_lengths
-        )
+        )  # [1, current_length, feature_dim]
         
-        # Get the latest frame's features
-        current_features = features[-1].unsqueeze(0)  # Add batch dimension
+        # Get only the last frame's features
+        current_features = features[:, -1:]  # [1, 1, feature_dim]
         
         # Process through motor model
-        motor_commands = self.motor_model(current_features)
+        motor_commands = self.motor_model(current_features)  # [1, motor_dim]
         
         # Denormalize the motor commands
         motor_commands = motor_commands * self.label_std + self.label_mean
         
-        return motor_commands
+        return motor_commands.squeeze(0)  # [motor_dim]
     
     def process_video(self, video_data: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
@@ -145,7 +145,7 @@ class EvaluationPipeline:
                     motor_commands.append(frame_motor_commands)
                 
                 # Stack all motor commands
-                motor_commands = torch.cat(motor_commands, dim=0)
+                motor_commands = torch.stack(motor_commands)  # [seq_len, motor_dim]
             else:
                 # Process all frames at once (batch mode)
                 features = self.etfg_model(
@@ -234,7 +234,10 @@ class EvaluationPipeline:
                 self.reset_state()
         
         # Save results
-        output_file = os.path.join(self.save_path, 'motor_commands.txt')
+        if self.streaming:
+            output_file = os.path.join(self.save_path, 'motor_commands_streaming.txt')
+        else:
+            output_file = os.path.join(self.save_path, 'motor_commands.txt')
         with open(output_file, 'w') as csv_writer:
             writer = csv.writer(csv_writer, delimiter='\t',lineterminator='\n',)
             for result in results:
