@@ -96,18 +96,16 @@ class EvaluationPipeline:
         """
         # Add frame to buffers
         self.audio_buffer.append(audio_frame)
-        self.emotion_buffer.append(emotion_label)
         self.current_length += 1
         
         # Convert buffers to tensors
-        audio_features = torch.stack(self.audio_buffer)  # [current_length, feature_dim]
-        emotion_labels = torch.stack(self.emotion_buffer)  # [current_length, label_dim]
+        audio_features = torch.stack(self.audio_buffer).permute(1,0,2)  # [current_length, feature_dim] # [current_length, label_dim]
         input_lengths = torch.tensor([self.current_length], dtype=torch.long)
         
         # Process through ETFG model - get features for all frames up to current
         features = self.etfg_model(
-            audio_features.unsqueeze(0),  # Add batch dimension: [1, current_length, feature_dim]
-            emotion_labels.unsqueeze(0),  # Add batch dimension: [1, current_length, label_dim]
+            audio_features,  # Add batch dimension: [1, current_length, feature_dim]
+            emotion_label,  # Add batch dimension: [1, current_length, label_dim]
             input_lengths
         )  # [1, current_length, feature_dim]
         
@@ -135,12 +133,12 @@ class EvaluationPipeline:
         with torch.no_grad():
             if self.streaming:
                 # Process each frame individually
-                seq_len = video_data['input_features'].size(0)
+                seq_len = video_data['input_features'].size(1)
                 motor_commands = []
                 
                 for i in range(seq_len):
-                    audio_frame = video_data['input_features'][i]
-                    emotion_label = video_data['emotion_labels'][i]
+                    audio_frame = video_data['input_features'][:,i]
+                    emotion_label = video_data['emotion_labels']
                     frame_motor_commands = self.process_streaming_frame(audio_frame, emotion_label)
                     motor_commands.append(frame_motor_commands)
                 
@@ -155,7 +153,7 @@ class EvaluationPipeline:
                 )
                 
                 # Process through motor model
-                motor_commands = self.motor_model(features)
+                motor_commands = self.motor_model(features.squeeze(0))
                 
                 # Denormalize the motor commands
                 motor_commands = motor_commands * self.label_std + self.label_mean
