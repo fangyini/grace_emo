@@ -9,19 +9,14 @@ class GraceModel(nn.Module):
         self.feature_type = feature_type
         
         if feature_type == 'ldmk':
-            # Smaller model for landmarks
-            self.fc1 = nn.Linear(136, 256)
-            self.fc2 = nn.Linear(256, 512)
-            self.fc5 = nn.Linear(512, 1024)
-            self.fc3 = nn.Linear(1024, 128)
-            self.fc4 = nn.Linear(128, 26)
+            input_size = 136
         else:  # face_embed
-            # Larger model for face embeddings
-            self.fc1 = nn.Linear(512, 1024)
-            self.fc2 = nn.Linear(1024, 2048)
-            self.fc5 = nn.Linear(2048, 256)
-            self.fc3 = nn.Linear(256, 128)
-            self.fc4 = nn.Linear(128, 26)
+            input_size = 512
+        self.fc1 = nn.Linear(input_size, 1024)
+        self.fc2 = nn.Linear(1024, 512)
+        self.fc5 = nn.Linear(512, 256)
+        self.fc3 = nn.Linear(256, 128)
+        self.fc4 = nn.Linear(128, 26)
             
         self.relu = nn.LeakyReLU()
 
