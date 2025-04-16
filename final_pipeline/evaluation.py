@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 import yaml
 import argparse
 import csv
+from tqdm import tqdm
 
 def load_config(config_path: str) -> Dict:
     """
@@ -100,7 +101,7 @@ class EvaluationPipeline:
         
         # Convert buffers to tensors
         audio_features = torch.stack(self.audio_buffer).permute(1,0,2)  # [current_length, feature_dim] # [current_length, label_dim]
-        input_lengths = torch.tensor([self.current_length], dtype=torch.long)
+        input_lengths = torch.tensor([self.current_length], dtype=torch.long).to(self.device)
         
         # Process through ETFG model - get features for all frames up to current
         features = self.etfg_model(
@@ -204,7 +205,7 @@ class EvaluationPipeline:
         """
         results = []
         
-        for batch_idx, (audio_features, target_features, emotion_labels, audio_lengths, target_lengths) in enumerate(test_loader):
+        for batch_idx, (audio_features, target_features, emotion_labels, audio_lengths, target_lengths) in enumerate(tqdm(test_loader)):
             video_name = video_names[batch_idx]
             video_name = "/".join(video_name)
             
