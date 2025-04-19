@@ -51,13 +51,13 @@ class GracePL(L.LightningModule):
         y = self.model(features)
 
         labels_normed = (labels - self.label_mean) / self.label_std
-        loss_normed = self.L1_loss(y, labels_normed)
+        loss_normed = self.mse_loss(y, labels_normed)
         if not self.isAutoML:
-            self.log("val_L1_loss_normed", loss_normed)
+            self.log("val_mse_loss", loss_normed)
 
         y = y * self.label_std + self.label_mean
         loss = self.L1_loss(y, labels)
-        self.log("val_L1_loss", loss, prog_bar=False)
+        self.log("val_L1_loss_unnormed", loss, prog_bar=False)
         return loss
 
     def test_step(self, batch, batch_idx):
@@ -114,7 +114,7 @@ if __name__ == '__main__':
     val_loader = DataLoader(GraceFaceDataset(image_path=path, split='val', feature_type=args.feature_type), 
                             batch_size=50, shuffle=False)
 
-    early_stop_callback = EarlyStopping(monitor="val_L1_loss", patience=500, verbose=False, mode="min")
+    early_stop_callback = EarlyStopping(monitor="val_mse_loss", patience=500, verbose=False, mode="min")
     trainer = L.Trainer(max_epochs=200000,
                         log_every_n_steps=10,
                         logger=tb_logger,

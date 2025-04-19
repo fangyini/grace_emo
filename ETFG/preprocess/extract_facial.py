@@ -211,7 +211,8 @@ def process_video_frames(video_path, detection_bs=16, feat_bs=64):
 
     faces, bboxes, dx_dy_edx_edy = detect_faces_batch(all_frames, batch_size=detection_bs)
     cropped_faces = crop_and_resize_faces_batch(all_frames, bboxes, dx_dy_edx_edy)
-    landmarks, facial_feats = extract_features_batch(cropped_faces, bboxes, batch_size=feat_bs)
+    _, new_bboxes, _ = detect_faces_batch(cropped_faces, batch_size=detection_bs)
+    landmarks, facial_feats = extract_features_batch(cropped_faces, new_bboxes, batch_size=feat_bs)
     
     # Stack results
     landmarks_stack = np.stack(landmarks)

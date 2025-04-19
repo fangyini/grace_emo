@@ -201,4 +201,5 @@ emotion/motor_prediction/MNIST/
 emotion/motor_prediction/lightning_logs/
 emotion/motor_prediction/test/
 dataset/
-final_pipeline/results
+final_pipeline/results_level3
+final_pipeline/results_from_server
