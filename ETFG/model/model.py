@@ -203,10 +203,14 @@ class MEADFeaturePredictor(pl.LightningModule):
         masked_targets = target_features * mask.float()
         
         # Calculate loss
-        loss = self.MAE(masked_predictions, masked_targets)
-        
+        loss = self.MSE(masked_predictions, masked_targets)
         # Log metrics
         self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
+        if self.hparams.feature_type == 'ldmk':
+            unnorm_loss = self.MAE(masked_predictions, masked_targets) * 112.0
+            self.log('val_loss_unnorm', unnorm_loss, on_step=False, on_epoch=True, prog_bar=True)
+        else:
+            self.log('val_loss_unnorm', loss, on_step=False, on_epoch=True, prog_bar=True)
         
         return {'val_loss': loss}
     
@@ -234,6 +238,8 @@ class MEADFeaturePredictor(pl.LightningModule):
         
         # Calculate loss
         loss = self.MAE(masked_predictions, masked_targets)
+        if self.hparams.feature_type == 'ldmk':
+            loss *= 112.0
         
         # Log test metrics
         self.log('test_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
