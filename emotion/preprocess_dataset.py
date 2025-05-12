@@ -12,6 +12,7 @@ import csv
 import numpy as np
 from local_test.calculate_sim import shape_to_np, rect_to_bb
 from pytorch_face_landmark.test_batch_detections import get_face_and_ldmk, load_model
+import argparse
 
 def detect_face(image, getBoundingBox=False):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -51,19 +52,29 @@ def read_csv(csv_path):
     return res
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--SAVE_LANDMARK_VISUALIZATION", action='store_true', default=False)
+    parser.add_argument("--dataset_path_root", type=str,
+                        default='/Users/xiaokeai/Documents/HKUST/projects/grace/grace_emo/dataset/')
+    parser.add_argument("--dataset_folder", type=str, default='updated_gau_1000')
+    parser.add_argument("--feature_folder", type=str,
+                        default='updated_gau_1000_features')
+    args = parser.parse_args()
+    print(args)
+
     detector = dlib.get_frontal_face_detector()
     predictor = dlib.shape_predictor('pretrained/shape_predictor_68_face_landmarks.dat')
     face_model = load_model()
-    dataset_folder = 'updated_gau_1000'
-    feature_folder = 'updated_gau_1000_features'
+    dataset_folder = args.dataset_folder
+    feature_folder = args.feature_folder
 
     resize_dim = 112
-    dataset_path_root = '/Users/xiaokeai/Documents/HKUST/projects/grace/grace_emo/dataset/'
+    dataset_path_root = args.dataset_path_root
     dataset_path = os.path.join(dataset_path_root, dataset_folder)
     img_path = os.path.join(dataset_path, 'img')
     csv_path = os.path.join(dataset_path, 'labels.csv')
-    landmark_path = os.path.join(dataset_path, 'landmarks.csv')
     label_dict = read_csv(csv_path)
+    motor_difference = []
     # try to read labels_verify
     try:
         label_verify_path = os.path.join(dataset_path, 'labels_verify.csv')
@@ -77,6 +88,12 @@ if __name__ == '__main__':
     processed_img_path = os.path.join(processed_dataset_path, 'data')
     if not os.path.exists(processed_img_path):
         os.makedirs(processed_img_path)
+
+    # Add path for landmark visualization
+    if SAVE_LANDMARK_VISUALIZATION:
+        landmark_vis_path = os.path.join(dataset_path_root, 'landmark_visualization')
+        if not os.path.exists(landmark_vis_path):
+            os.makedirs(landmark_vis_path)
 
     filenames = glob.glob(os.path.join(img_path, '*.png'))
     filenames.sort()
@@ -103,6 +120,13 @@ if __name__ == '__main__':
         #landmark = detect_face(cropped_image)
         landmark, facial_feats = get_face_and_ldmk(cropped_image, face_model)
 
+        # Save landmark visualization if enabled
+        if SAVE_LANDMARK_VISUALIZATION:
+            vis_image = cropped_image.copy()
+            for (a1, a2) in landmark:
+                cv2.circle(vis_image, (int(a1), int(a2)), 1, (0, 0, 255), -1)
+            cv2.imwrite(os.path.join(landmark_vis_path, img_name), vis_image)
+
         ldmk_distance = abs(landmark - last_landmark).sum()
         #print(img_name, ldmk_distance)
         #if ldmk_distance < 50:
@@ -112,21 +136,32 @@ if __name__ == '__main__':
         label = label_dict[img_name[4:-4]]
         try: # verify: if has -180 or too distant then continue
             label_verify = label_verify_dict[img_name[4:-4]]
+
             for ind in range(label.shape[0]):
                 deg = label[ind]
                 if abs(deg) > 180:
                     continue
-            label_dist = abs(label_verify - label).sum()
-            if label_dist > 200:
+            label_dist = abs(label_verify - label).mean()
+            motor_difference.append(label_dist)
+            if label_dist > 8:
                 print('label distance too large (' + str(label_dist) + '), skipping ', img_name)
                 continue
         except:
             pass
 
         # save npz, image(224,224,3)/landmark(68,2)/label(26,)
-        np.savez(os.path.join(processed_img_path, 'data_'+number+'.npz'), label=label,
-                 ldmk=landmark, face_embed=facial_feats) # image=cropped_image,
+        #np.savez(os.path.join(processed_img_path, 'data_'+number+'.npz'), label=label,
+        #         ldmk=landmark, face_embed=facial_feats) # image=cropped_image,
         last_landmark = landmark
 
-        # filters: motor errors, degrees>180, landmarks distance, label distance
-    # original num vs. processed num?
+    # Creating a customized histogram with a density plot
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    sns.histplot(motor_difference, bins=30, kde=True, color='lightgreen', edgecolor='red')
+
+    # Adding labels and title
+    plt.xlabel('Motor difference')
+    plt.ylabel('Density')
+
+    # Display the plot
+    plt.show()

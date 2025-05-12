@@ -209,7 +209,7 @@ if __name__ == '__main__':
     rospy.init_node('DataCollectionNode')
 
     for x in range(26):
-        for y in range(3):
+        for y in range(5):
             node = DataCollectionNode(output=args.output, isGau=args.is_gau)
             node.test_latency(x+1)
 

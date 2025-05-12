@@ -246,6 +246,7 @@ if __name__ == '__main__':
     parser.add_argument("--is_gau", action='store_true', default=True)
     parser.add_argument("--times", type=int, default=600)
     parser.add_argument("--output", type=str, default='dataset/predicted_motors_lrelu_img') # dataset/gau/
+    parser.add_argument("--command_info", type=str, default=None)
     args = parser.parse_args()
     print(args)
 
@@ -254,8 +255,11 @@ if __name__ == '__main__':
     cam = VideoCapture(-1)
     rospy.init_node('DataCollectionNode')
     node = DataCollectionNode(output=args.output, isGau=args.is_gau)
-    #node.generate_random_face(times=args.times)
-    node.get_faces_from_testing_outcome('/home/yini/grace_robot/dataset/best_model_lrelu/testing_results.csv')
+    if args.command_info is not None:
+        node.get_faces_from_testing_outcome(args.command_info)
+    else:
+        node.generate_random_face(times=args.times)
+    #
     t2 = time.time()
     print('time elapse=', str(int((t2-t1))), 'sec')
     rospy.signal_shutdown('End')
