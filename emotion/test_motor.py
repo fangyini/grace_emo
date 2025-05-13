@@ -190,8 +190,11 @@ class DataCollectionNode(object):
                     if abs(moved_motors - values).mean() < 5:
                         total_time = final_time - time_start
                         break
-        print('Number of motors: ', number_of_motors)
-        print('Total time: ', total_time)
+        try:
+            print('Number of motors: ', number_of_motors)
+            print('Total time: ', total_time)
+        except:
+            return
 
 
 if __name__ == '__main__':
@@ -215,6 +218,6 @@ if __name__ == '__main__':
 
 
     t2 = time.time()
-    print('time elapse=', str(int((t2 - t1))), 'sec')
+    #print('time elapse=', str(int((t2 - t1))), 'sec')
     rospy.signal_shutdown('End')
     sys.exit()
